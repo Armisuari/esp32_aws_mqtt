@@ -1,0 +1,28 @@
+# Build output
+build/
+sdkconfig.old
+*.tmp
+
+# IDE files
+.vscode/launch.json
+.clangd
+
+# Logs
+*.log
+idf_monitor.log
+
+# Certificate private keys (keep structure but not real keys)
+certificates/device_private_key.pem
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*~
+*.bak
+*.orig

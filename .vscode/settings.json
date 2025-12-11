@@ -1,0 +1,20 @@
+{
+  "idf.portWin": "COM3",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "idf.espIdfPath": "C:/Users/Noovo-Arief/esp/v5.3.2/esp-idf",
+  "idf.pythonBinPath": "C:/Users/Noovo-Arief/.espressif/python_env/idf5.3_py3.11_env/Scripts/python.exe",
+  "idf.customExtraPaths": "C:/Users/Noovo-Arief/.espressif/tools",
+  "idf.baudRate": "115200",
+  "idf.flashType": "UART",
+  "idf.monitorBaudRate": "115200",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+  "C_Cpp.default.configurationProvider": "",
+  "files.associations": {
+    "*.h": "c",
+    "*.c": "c"
+  },
+  "editor.formatOnSave": true,
+  "C_Cpp.clang_format_style": "{ IndentWidth: 4, TabWidth: 4, UseTab: Never }"
+}
