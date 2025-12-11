@@ -14,22 +14,51 @@ Write-Host "AWS IoT Thing Setup for ESP32-S3" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Green
 
 # Check if AWS CLI is installed
-try {
-    $awsVersion = aws --version
-    Write-Host "AWS CLI found: $awsVersion" -ForegroundColor Green
-} catch {
+$awsCmd = $null
+$possiblePaths = @(
+    "aws",  # In PATH
+    "C:\Program Files\Amazon\AWSCLIV2\aws.exe",
+    "$env:PROGRAMFILES\Amazon\AWSCLIV2\aws.exe",
+    "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts\aws.exe"
+)
+
+foreach ($path in $possiblePaths) {
+    try {
+        if ($path -eq "aws") {
+            $null = Get-Command aws -ErrorAction Stop
+            $awsCmd = "aws"
+            break
+        } elseif (Test-Path $path) {
+            $awsCmd = $path
+            break
+        }
+    } catch {
+        continue
+    }
+}
+
+if (-not $awsCmd) {
     Write-Host "ERROR: AWS CLI not found. Please install AWS CLI first." -ForegroundColor Red
     Write-Host "Download from: https://aws.amazon.com/cli/" -ForegroundColor Yellow
+    Write-Host "After installation, restart PowerShell or add AWS CLI to your PATH." -ForegroundColor Yellow
+    exit 1
+}
+
+try {
+    $awsVersion = & $awsCmd --version 2>&1
+    Write-Host "AWS CLI found: $awsVersion" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Failed to execute AWS CLI." -ForegroundColor Red
     exit 1
 }
 
 # Check AWS credentials
 try {
-    $identity = aws sts get-caller-identity --output json | ConvertFrom-Json
+    $identity = & $awsCmd sts get-caller-identity --output json | ConvertFrom-Json
     Write-Host "AWS Identity: $($identity.Arn)" -ForegroundColor Green
 } catch {
     Write-Host "ERROR: AWS credentials not configured." -ForegroundColor Red
-    Write-Host "Run: aws configure" -ForegroundColor Yellow
+    Write-Host "Run: $awsCmd configure" -ForegroundColor Yellow
     exit 1
 }
 
@@ -44,7 +73,7 @@ Write-Host "Creating AWS IoT Thing: $ThingName" -ForegroundColor Yellow
 
 # Create IoT Thing
 try {
-    $thing = aws iot create-thing --thing-name $ThingName --output json | ConvertFrom-Json
+    $thing = & $awsCmd iot create-thing --thing-name $ThingName --region $Region --output json | ConvertFrom-Json
     Write-Host "Thing created: $($thing.thingArn)" -ForegroundColor Green
 } catch {
     Write-Host "Thing might already exist, continuing..." -ForegroundColor Yellow
@@ -53,7 +82,7 @@ try {
 # Create certificates
 Write-Host "Creating device certificates..." -ForegroundColor Yellow
 try {
-    $cert = aws iot create-keys-and-certificate --set-as-active --output json | ConvertFrom-Json
+    $cert = & $awsCmd iot create-keys-and-certificate --set-as-active --region $Region --output json | ConvertFrom-Json
     
     # Save certificate
     $cert.certificatePem | Out-File -FilePath "$certDir\device_cert.pem" -Encoding ascii
@@ -97,7 +126,10 @@ $policyDocument = @"
 "@
 
 try {
-    $policyDocument | aws iot create-policy --policy-name $PolicyName --policy-document file:///dev/stdin
+    $tempPolicy = New-TemporaryFile
+    $policyDocument | Out-File -FilePath $tempPolicy.FullName -Encoding utf8
+    & $awsCmd iot create-policy --policy-name $PolicyName --policy-document file://$($tempPolicy.FullName) --region $Region
+    Remove-Item $tempPolicy.FullName
     Write-Host "Policy created: $PolicyName" -ForegroundColor Green
 } catch {
     Write-Host "Policy might already exist, continuing..." -ForegroundColor Yellow
@@ -106,7 +138,7 @@ try {
 # Attach policy to certificate
 Write-Host "Attaching policy to certificate..." -ForegroundColor Yellow
 try {
-    aws iot attach-principal-policy --policy-name $PolicyName --principal $certificateArn
+    & $awsCmd iot attach-principal-policy --policy-name $PolicyName --principal $cert.certificateArn --region $Region
     Write-Host "Policy attached to certificate" -ForegroundColor Green
 } catch {
     Write-Host "ERROR: Failed to attach policy" -ForegroundColor Red
@@ -116,7 +148,7 @@ try {
 # Attach certificate to thing
 Write-Host "Attaching certificate to thing..." -ForegroundColor Yellow
 try {
-    aws iot attach-thing-principal --thing-name $ThingName --principal $certificateArn
+    & $awsCmd iot attach-thing-principal --thing-name $ThingName --principal $cert.certificateArn --region $Region
     Write-Host "Certificate attached to thing" -ForegroundColor Green
 } catch {
     Write-Host "ERROR: Failed to attach certificate to thing" -ForegroundColor Red
@@ -126,7 +158,7 @@ try {
 # Get IoT endpoint
 Write-Host "Getting IoT endpoint..." -ForegroundColor Yellow
 try {
-    $endpoint = aws iot describe-endpoint --endpoint-type iot:Data-ATS --output text
+    $endpoint = & $awsCmd iot describe-endpoint --endpoint-type iot:Data-ATS --region $Region --output text
     Write-Host "IoT Endpoint: $endpoint" -ForegroundColor Green
 } catch {
     Write-Host "ERROR: Failed to get IoT endpoint" -ForegroundColor Red
