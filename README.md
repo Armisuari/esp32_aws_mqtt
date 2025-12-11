@@ -66,17 +66,31 @@ esp32_aws_mqtt/
 
 ## ⚙️ Configuration
 
+All project configuration is managed through `sdkconfig.defaults` for easy customization without modifying source code.
+
 ### WiFi Settings
-Update WiFi credentials in `main/aws_iot_client.c`:
-```c
-#define WIFI_SSID "YourWiFiSSID"
-#define WIFI_PASSWORD "YourWiFiPassword"
+Update WiFi credentials in `sdkconfig.defaults`:
+```ini
+CONFIG_EXAMPLE_WIFI_SSID="YourWiFiSSID"
+CONFIG_EXAMPLE_WIFI_PASSWORD="YourWiFiPassword"
+CONFIG_EXAMPLE_WIFI_MAXIMUM_RETRY=5
 ```
 
 ### AWS IoT Setup
 1. **Create IoT Thing**: Use `scripts/setup_aws_iot.ps1` or AWS Console
 2. **Download Certificates**: Place in `certificates/` directory
-3. **Update Endpoint**: Set your AWS IoT endpoint in `aws_iot_client.c`
+3. **Update Configuration**: Set your AWS IoT settings in `sdkconfig.defaults`:
+```ini
+CONFIG_AWS_IOT_MQTT_HOST="your-endpoint.iot.region.amazonaws.com"
+CONFIG_AWS_IOT_DEVICE_THING_NAME="esp32-s3-device"
+CONFIG_AWS_IOT_MQTT_PORT=8883
+```
+
+### Advanced Configuration
+For advanced settings, use the ESP-IDF configuration menu:
+```bash
+idf.py menuconfig
+```
 
 ### Serial Port
 Update COM port in `.vscode/settings.json`:
@@ -90,9 +104,10 @@ Update COM port in `.vscode/settings.json`:
 
 | Topic | Purpose | Example |
 |-------|---------|---------|
-| `device/{thingName}/telemetry` | Device telemetry data | Temperature, humidity, status |
-| `device/{thingName}/commands` | Remote commands | Reboot, config update |
+| `device/{thingName}/telemetry` | Device telemetry data | Uptime, free heap, message count (every 30s) |
+| `device/{thingName}/commands` | Remote commands | Custom commands via MQTT |
 | `$aws/things/{thingName}/shadow/update` | Device shadow sync | State synchronization |
+| `$aws/things/{thingName}/shadow/get/accepted` | Shadow responses | Shadow get responses |
 
 ## 🔧 Development
 
@@ -116,6 +131,19 @@ Update COM port in `.vscode/settings.json`:
 
 Free flash space: ~15% (600KB) available for OTA updates.
 
+## 📊 Telemetry Data Format
+
+The device publishes telemetry every 30 seconds with this JSON structure:
+```json
+{
+  "timestamp": 1234567890,
+  "device_id": "esp32-s3-device", 
+  "message_count": 42,
+  "free_heap": 245760,
+  "uptime_ms": 120000
+}
+```
+
 ## 🛡️ Security Features
 
 - **TLS 1.2** encryption for all communications
@@ -127,11 +155,11 @@ Free flash space: ~15% (600KB) available for OTA updates.
 ## 📱 Example Output
 
 ```
-I (1234) AWS_IOT: WiFi connected successfully
-I (1456) AWS_IOT: MQTT client started successfully  
-I (1567) AWS_IOT: Connected to AWS IoT Core
-I (1678) TELEMETRY: Publishing telemetry data
-I (1789) SHADOW: Device shadow updated successfully
+I (1234) WIFI_MANAGER: WiFi connected successfully
+I (1456) AWS_IOT_CLIENT: MQTT_EVENT_CONNECTED
+I (1567) AWS_IOT_CLIENT: Subscribed to commands, msg_id=1234
+I (1678) AWS_IOT_CLIENT: Published telemetry, msg_id=5678
+I (1789) DEVICE_SHADOW: Shadow state updated successfully
 ```
 
 ## 🤝 Contributing
