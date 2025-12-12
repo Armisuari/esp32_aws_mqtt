@@ -11,18 +11,9 @@ sdkconfig.old
 *.log
 idf_monitor.log
 
-# Certificate private keys (keep structure but not real keys)
-certificates/device_private_key.pem
-
-# Python cache
-__pycache__/
-*.pyc
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Backup files
-*~
-*.bak
-*.orig
+# Certificate files - never commit real certificates to git
+certificates/*.pem
+certificates/*.crt
+certificates/*.key
+certificates/*.p12
+certificates/*.pfx
