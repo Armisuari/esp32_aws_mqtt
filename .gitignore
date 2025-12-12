@@ -3,6 +3,10 @@ build/
 sdkconfig.old
 *.tmp
 
+# Configuration files with sensitive data
+sdkconfig.defaults
+sdkconfig
+
 # IDE files
 .vscode/launch.json
 .clangd
