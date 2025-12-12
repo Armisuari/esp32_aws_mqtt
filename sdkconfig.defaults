@@ -1,8 +1,8 @@
 # ESP32-S3 AWS IoT Configuration Defaults
 
 # WiFi Configuration
-CONFIG_EXAMPLE_WIFI_SSID="Noovoleum_Office"
-CONFIG_EXAMPLE_WIFI_PASSWORD="greenenergychampion"
+CONFIG_EXAMPLE_WIFI_SSID=""
+CONFIG_EXAMPLE_WIFI_PASSWORD=""
 CONFIG_EXAMPLE_WIFI_MAXIMUM_RETRY=5
 
 # AWS IoT Configuration  
