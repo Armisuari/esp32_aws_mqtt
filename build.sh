@@ -9,6 +9,8 @@ echo "================================================"
 # Check if ESP-IDF is already configured
 if [ -n "$IDF_PATH" ]; then
     echo "ESP-IDF already configured: $IDF_PATH"
+    # Jump to build section
+    # (function equivalent to goto build in batch)
 else
     # Common ESP-IDF installation paths
     ESP_IDF_PATHS=(
@@ -16,18 +18,23 @@ else
         "/opt/esp-idf"
         "$HOME/.espressif/esp-idf"
         "/usr/local/esp-idf"
+        "$HOME/esp/v5.3.2/esp-idf"
+        "$HOME/esp/v5.3.1/esp-idf"
+        "$HOME/esp/v5.3/esp-idf"
     )
 
     echo "Searching for ESP-IDF installation..."
+    IDF_FOUND=0
     for path in "${ESP_IDF_PATHS[@]}"; do
         if [ -f "$path/export.sh" ]; then
             echo "Found ESP-IDF at: $path"
             export IDF_PATH="$path"
+            IDF_FOUND=1
             break
         fi
     done
 
-    if [ -z "$IDF_PATH" ]; then
+    if [ $IDF_FOUND -eq 0 ]; then
         echo "ERROR: ESP-IDF not found in standard locations"
         echo "Please install ESP-IDF or set IDF_PATH manually"
         echo "Standard locations checked:"
@@ -38,6 +45,15 @@ else
     fi
 
     echo "Setting up ESP-IDF environment..."
+
+    # Set up Python environment first (Linux equivalent)
+    PYTHON_ENV="$HOME/.espressif/python_env/idf5.3_py3.11_env"
+    if [ -d "$PYTHON_ENV" ]; then
+        echo "Found Python environment: $PYTHON_ENV"
+        export PATH="$PYTHON_ENV/bin:$PATH"
+        export PYTHON="$PYTHON_ENV/bin/python"
+    fi
+
     source "$IDF_PATH/export.sh"
     if [ $? -ne 0 ]; then
         echo "ERROR: Failed to setup ESP-IDF environment"
