@@ -12,23 +12,26 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "aws_iot_config.h"
+#include "sdkconfig.h"
 
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "freertos/queue.h"
+#include "freertos/task.h"
 
-#include "esp_system.h"
-#include "esp_log.h"
 #include "esp_event.h"
+#include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
 
-#include "wifi_manager.h"
 #include "certificate_manager.h"
 #include "device_shadow.h"
+#include "wifi_manager.h"
 
 #include "mqtt_client.h"
 
@@ -42,9 +45,9 @@ static EventGroupHandle_t aws_iot_event_group;
 const int AWS_IOT_CONNECTED_BIT = BIT0;
 
 // Configuration - Use hardcoded values for now
-#define AWS_IOT_MQTT_HOST "your-endpoint.iot.region.amazonaws.com"
-#define AWS_IOT_MQTT_PORT 8883
-#define AWS_IOT_DEVICE_THING_NAME "esp32-s3-device"
+#define AWS_IOT_MQTT_HOST CONFIG_AWS_IOT_MQTT_HOST
+#define AWS_IOT_MQTT_PORT CONFIG_AWS_IOT_MQTT_PORT
+#define AWS_IOT_DEVICE_THING_NAME CONFIG_AWS_IOT_DEVICE_THING_NAME
 
 // MQTT Topics
 #define TELEMETRY_TOPIC_FMT "device/%s/telemetry"
@@ -60,28 +63,29 @@ const int AWS_IOT_CONNECTED_BIT = BIT0;
 /**
  * @brief MQTT event handler
  */
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
-{
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
+                               int32_t event_id, void *event_data) {
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
 
-    switch ((esp_mqtt_event_id_t)event_id)
-    {
+    switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         xEventGroupSetBits(aws_iot_event_group, AWS_IOT_CONNECTED_BIT);
 
         // Subscribe to command topic
         char command_topic[128];
-        snprintf(command_topic, sizeof(command_topic), COMMAND_TOPIC_FMT, AWS_IOT_DEVICE_THING_NAME);
+        snprintf(command_topic, sizeof(command_topic), COMMAND_TOPIC_FMT,
+                 AWS_IOT_DEVICE_THING_NAME);
         msg_id = esp_mqtt_client_subscribe(client, command_topic, 1);
         ESP_LOGI(TAG, "Subscribed to commands, msg_id=%d", msg_id);
 
         // Subscribe to shadow responses
         char shadow_get_accepted[256];
         snprintf(shadow_get_accepted, sizeof(shadow_get_accepted),
-                 "$aws/things/%s/shadow/get/accepted", AWS_IOT_DEVICE_THING_NAME);
+                 "$aws/things/%s/shadow/get/accepted",
+                 AWS_IOT_DEVICE_THING_NAME);
         msg_id = esp_mqtt_client_subscribe(client, shadow_get_accepted, 1);
         ESP_LOGI(TAG, "Subscribed to shadow get accepted, msg_id=%d", msg_id);
 
@@ -111,15 +115,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
         // Handle command messages
         char cmd_topic[128];
-        snprintf(cmd_topic, sizeof(cmd_topic), COMMAND_TOPIC_FMT, AWS_IOT_DEVICE_THING_NAME);
+        snprintf(cmd_topic, sizeof(cmd_topic), COMMAND_TOPIC_FMT,
+                 AWS_IOT_DEVICE_THING_NAME);
         if (strncmp(event->topic, cmd_topic, event->topic_len) == 0) {
-            ESP_LOGI(TAG, "Received command: %.*s", event->data_len, event->data);
+            ESP_LOGI(TAG, "Received command: %.*s", event->data_len,
+                     event->data);
             // TODO: Process commands
         }
 
         // Handle shadow responses
-        if (strstr(event->topic, "/shadow/") != NULL)
-        {
+        if (strstr(event->topic, "/shadow/") != NULL) {
             device_shadow_handle_response(event->topic, event->topic_len,
                                           event->data, event->data_len);
         }
@@ -127,8 +132,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-        if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
-        {
+        if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
             ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x",
                      event->error_handle->esp_tls_last_esp_err);
             ESP_LOGI(TAG, "Last tls stack error number: 0x%x",
@@ -136,14 +140,13 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
             ESP_LOGI(TAG, "Last captured errno : %d (%s)",
                      event->error_handle->esp_transport_sock_errno,
                      strerror(event->error_handle->esp_transport_sock_errno));
-        }
-        else if (event->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED)
-        {
-            ESP_LOGI(TAG, "Connection refused error: 0x%x", event->error_handle->connect_return_code);
-        }
-        else
-        {
-            ESP_LOGW(TAG, "Unknown error type: 0x%x", event->error_handle->error_type);
+        } else if (event->error_handle->error_type ==
+                   MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+            ESP_LOGI(TAG, "Connection refused error: 0x%x",
+                     event->error_handle->connect_return_code);
+        } else {
+            ESP_LOGW(TAG, "Unknown error type: 0x%x",
+                     event->error_handle->error_type);
         }
         break;
 
@@ -156,74 +159,78 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 /**
  * @brief Initialize and start MQTT client
  */
-static void mqtt_client_init(void)
-{
+static void mqtt_client_init(void) {
     // Get certificates
     const char *root_ca = certificate_manager_get_root_ca();
     const char *client_cert = certificate_manager_get_client_cert();
     const char *client_key = certificate_manager_get_client_key();
 
-    if (!root_ca || !client_cert || !client_key)
-    {
+    if (!root_ca || !client_cert || !client_key) {
         ESP_LOGE(TAG, "Failed to load certificates");
         return;
     }
 
     char mqtt_uri[256];
-    snprintf(mqtt_uri, sizeof(mqtt_uri), "mqtts://%s:%d", AWS_IOT_MQTT_HOST, AWS_IOT_MQTT_PORT);
-    
+    snprintf(mqtt_uri, sizeof(mqtt_uri), "mqtts://%s:%d", AWS_IOT_MQTT_HOST,
+             AWS_IOT_MQTT_PORT);
+
     esp_mqtt_client_config_t mqtt_cfg = {
-        .broker = {
-            .address.uri = mqtt_uri,
-            .verification.certificate = root_ca,
-        },
-        .credentials = {
-            .authentication = {
-                .certificate = client_cert,
-                .key = client_key,
+        .broker =
+            {
+                .address.uri = mqtt_uri,
+                .verification.certificate = root_ca,
             },
-        },
-        .session = {
-            .keepalive = 60,
-            .disable_clean_session = false,
-        },
-        .network = {
-            .timeout_ms = 5000,
-            .refresh_connection_after_ms = 20000,
-        },
-        .buffer = {
-            .size = 1024,
-            .out_size = 1024,
-        },
+        .credentials =
+            {
+                .authentication =
+                    {
+                        .certificate = client_cert,
+                        .key = client_key,
+                    },
+            },
+        .session =
+            {
+                .keepalive = 60,
+                .disable_clean_session = false,
+            },
+        .network =
+            {
+                .timeout_ms = 5000,
+                .refresh_connection_after_ms = 20000,
+            },
+        .buffer =
+            {
+                .size = 1024,
+                .out_size = 1024,
+            },
     };
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-    if (mqtt_client == NULL)
-    {
+    if (mqtt_client == NULL) {
         ESP_LOGE(TAG, "Failed to initialize MQTT client");
         return;
     }
 
-    esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID,
+                                   mqtt_event_handler, NULL);
     esp_mqtt_client_start(mqtt_client);
 }
 
 /**
  * @brief Telemetry publishing task
  */
-static void telemetry_task(void *pvParameters)
-{
+static void telemetry_task(void *pvParameters) {
     char telemetry_topic[128];
     char telemetry_data[256];
     static int message_count = 0;
 
-    snprintf(telemetry_topic, sizeof(telemetry_topic), TELEMETRY_TOPIC_FMT, AWS_IOT_DEVICE_THING_NAME);
+    snprintf(telemetry_topic, sizeof(telemetry_topic), TELEMETRY_TOPIC_FMT,
+             AWS_IOT_DEVICE_THING_NAME);
 
-    while (1)
-    {
+    while (1) {
         // Wait for MQTT connection
-        xEventGroupWaitBits(aws_iot_event_group, AWS_IOT_CONNECTED_BIT,
-                            false, true, portMAX_DELAY);
+        xEventGroupWaitBits(aws_iot_event_group, AWS_IOT_CONNECTED_BIT, false,
+                            true, portMAX_DELAY);
 
         // Create telemetry message
         snprintf(telemetry_data, sizeof(telemetry_data),
@@ -234,10 +241,8 @@ static void telemetry_task(void *pvParameters)
                  "\"free_heap\": %lu,"
                  "\"uptime_ms\": %llu"
                  "}",
-                 esp_timer_get_time() / 1000,
-                 AWS_IOT_DEVICE_THING_NAME,
-                 ++message_count,
-                 esp_get_free_heap_size(),
+                 esp_timer_get_time() / 1000, AWS_IOT_DEVICE_THING_NAME,
+                 ++message_count, esp_get_free_heap_size(),
                  esp_timer_get_time() / 1000);
 
         // Publish telemetry
@@ -252,14 +257,13 @@ static void telemetry_task(void *pvParameters)
 /**
  * @brief Application main entry point
  */
-void app_main(void)
-{
+void app_main(void) {
     ESP_LOGI(TAG, "ESP32-S3 AWS IoT Client Starting...");
 
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
+        ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }

@@ -99,35 +99,46 @@ try {
     exit 1
 }
 
+# Download AWS Root CA certificate
+Write-Host "Downloading AWS Root CA certificate..." -ForegroundColor Yellow
+try {
+    $rootCaUrl = "https://www.amazontrust.com/repository/AmazonRootCA1.pem"
+    Invoke-WebRequest -Uri $rootCaUrl -OutFile "$certDir\aws_root_ca.pem"
+    Write-Host "AWS Root CA certificate saved to $certDir\aws_root_ca.pem" -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Failed to download AWS Root CA certificate" -ForegroundColor Red
+    exit 1
+}
+
 # Create IoT Policy
 Write-Host "Creating IoT Policy: $PolicyName" -ForegroundColor Yellow
-$policyDocument = @"
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iot:Connect",
-        "iot:Publish",
-        "iot:Subscribe",
-        "iot:Receive"
-      ],
-      "Resource": [
-        "arn:aws:iot:${Region}:*:client/${ThingName}",
-        "arn:aws:iot:${Region}:*:topic/device/${ThingName}/*",
-        "arn:aws:iot:${Region}:*:topicfilter/device/${ThingName}/*",
-        "arn:aws:iot:${Region}:*:topic/`$aws/things/${ThingName}/shadow/*",
-        "arn:aws:iot:${Region}:*:topicfilter/`$aws/things/${ThingName}/shadow/*"
-      ]
-    }
-  ]
-}
-"@
+
+# Build policy document with proper JSON formatting
+$policyJson = @{
+    Version = "2012-10-17"
+    Statement = @(
+        @{
+            Effect = "Allow"
+            Action = @(
+                "iot:Connect",
+                "iot:Publish", 
+                "iot:Subscribe",
+                "iot:Receive"
+            )
+            Resource = @(
+                "arn:aws:iot:${Region}:*:client/${ThingName}",
+                "arn:aws:iot:${Region}:*:topic/device/${ThingName}/*",
+                "arn:aws:iot:${Region}:*:topicfilter/device/${ThingName}/*",
+                "arn:aws:iot:${Region}:*:topic/`$aws/things/${ThingName}/shadow/*",
+                "arn:aws:iot:${Region}:*:topicfilter/`$aws/things/${ThingName}/shadow/*"
+            )
+        }
+    )
+} | ConvertTo-Json -Depth 3
 
 try {
     $tempPolicy = New-TemporaryFile
-    $policyDocument | Out-File -FilePath $tempPolicy.FullName -Encoding utf8
+    $policyJson | Out-File -FilePath $tempPolicy.FullName -Encoding utf8
     & $awsCmd iot create-policy --policy-name $PolicyName --policy-document file://$($tempPolicy.FullName) --region $Region
     Remove-Item $tempPolicy.FullName
     Write-Host "Policy created: $PolicyName" -ForegroundColor Green
@@ -173,7 +184,8 @@ Write-Host "Configuration Summary:" -ForegroundColor Yellow
 Write-Host "  Thing Name: $ThingName" -ForegroundColor White
 Write-Host "  Policy Name: $PolicyName" -ForegroundColor White
 Write-Host "  IoT Endpoint: $endpoint" -ForegroundColor White
-Write-Host "  Certificate: $certDir\device_cert.pem" -ForegroundColor White
+Write-Host "  AWS Root CA: $certDir\aws_root_ca.pem" -ForegroundColor White
+Write-Host "  Device Certificate: $certDir\device_cert.pem" -ForegroundColor White
 Write-Host "  Private Key: $certDir\device_private_key.pem" -ForegroundColor White
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
