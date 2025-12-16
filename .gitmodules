@@ -1,0 +1,6 @@
+[submodule "components/sim7600e"]
+	path = components/sim7600e
+	url = git@github.com:Armisuari/esp32-sim7600e.git
+[submodule "reference/sim7600_mqtt"]
+	path = reference/sim7600_mqtt
+	url = git@github.com:IndustrialArduino/SIM7600_MQTT.git
