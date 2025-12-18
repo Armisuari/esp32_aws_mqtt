@@ -1,0 +1,119 @@
+menu "AWS IoT Configuration"
+
+    choice AWS_IOT_CONNECTIVITY
+        prompt "AWS IoT Connectivity Method"
+        default AWS_IOT_USE_WIFI
+        help
+            Choose the connectivity method for AWS IoT connection
+
+        config AWS_IOT_USE_WIFI
+            bool "WiFi Connectivity"
+            help
+                Use WiFi for AWS IoT connectivity (original implementation)
+
+        config AWS_IOT_USE_SIM7600E
+            bool "SIM7600E Cellular Connectivity"
+            help
+                Use SIM7600E cellular module for AWS IoT connectivity
+
+    endchoice
+
+    config AWS_IOT_MQTT_HOST
+        string "AWS IoT Endpoint"
+        default "a26g2r8rrxpe0j-ats.iot.ap-southeast-1.amazonaws.com"
+        help
+            AWS IoT Core endpoint hostname
+
+    config AWS_IOT_MQTT_PORT
+        int "AWS IoT MQTT Port"
+        default 8883
+        help
+            AWS IoT Core MQTT port (usually 8883 for SSL/TLS)
+
+    config AWS_IOT_DEVICE_THING_NAME
+        string "AWS IoT Thing Name"
+        default "esp32-s3-device"
+        help
+            AWS IoT Thing name for this device
+
+    menu "WiFi Configuration"
+        depends on AWS_IOT_USE_WIFI
+
+        config EXAMPLE_WIFI_SSID
+            string "WiFi SSID"
+            default "Noovoleum_Office"
+            help
+                SSID (network name) for WiFi connection
+
+        config EXAMPLE_WIFI_PASSWORD
+            string "WiFi Password"
+            default "greenenergychampion"
+            help
+                WiFi password (WPA or WPA2)
+
+        config EXAMPLE_WIFI_MAXIMUM_RETRY
+            int "Maximum Retry"
+            default 5
+            help
+                Set the Maximum retry to avoid station reconnecting to the AP unlimited times
+
+    endmenu
+
+    menu "SIM7600E Configuration"
+        depends on AWS_IOT_USE_SIM7600E
+
+        config SIM7600E_APN
+            string "APN Name"
+            default "internet"
+            help
+                Access Point Name for cellular data connection
+
+        config SIM7600E_UART_PORT
+            int "UART Port"
+            default 2
+            help
+                UART port number for SIM7600E communication
+
+        config SIM7600E_TX_PIN
+            int "TX Pin"
+            default 2
+            help
+                GPIO pin for UART TX
+
+        config SIM7600E_RX_PIN
+            int "RX Pin"
+            default 1
+            help
+                GPIO pin for UART RX
+
+        config SIM7600E_PWRKEY_PIN
+            int "Power Key Pin"
+            default 41
+            help
+                GPIO pin for SIM7600E power key
+
+    endmenu
+
+    menu "Certificate Configuration"
+
+        config AWS_IOT_ROOT_CA_FILENAME
+            string "AWS Root CA Filename"
+            default "aws_root_ca.pem"
+            help
+                Root CA certificate filename
+
+        config AWS_IOT_CERTIFICATE_FILENAME
+            string "Device Certificate Filename"
+            default "device_cert.pem"
+            help
+                Device certificate filename
+
+        config AWS_IOT_PRIVATE_KEY_FILENAME
+            string "Private Key Filename"
+            default "device_private_key.pem"
+            help
+                Device private key filename
+
+    endmenu
+
+endmenu
