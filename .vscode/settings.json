@@ -15,6 +15,6 @@
     "*.h": "c",
     "*.c": "c"
   },
-  "editor.formatOnSave": true,
+  "editor.formatOnSave": false,
   "C_Cpp.clang_format_style": "{ IndentWidth: 4, TabWidth: 4, UseTab: Never }"
 }
