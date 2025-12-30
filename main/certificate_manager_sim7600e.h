@@ -30,21 +30,6 @@ esp_err_t certificate_manager_sim7600e_init(void);
 esp_err_t certificate_manager_sim7600e_configure_aws_iot(void);
 
 /**
- * @brief Store AWS IoT certificates to NVS
- *
- * This function is typically called during device provisioning
- *
- * @param aws_root_ca AWS Root CA certificate in PEM format (can be NULL)
- * @param device_cert Device certificate in PEM format
- * @param device_private_key Device private key in PEM format
- * @return esp_err_t
- */
-esp_err_t
-certificate_manager_sim7600e_store_certificates(const char *aws_root_ca,
-                                                const char *device_cert,
-                                                const char *device_private_key);
-
-/**
  * @brief Clear stored certificates from NVS
  *
  * @return esp_err_t

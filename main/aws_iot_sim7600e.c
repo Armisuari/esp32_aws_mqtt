@@ -315,6 +315,13 @@ static esp_err_t init_network_and_gprs(void) {
         ESP_LOGI(TAG, "System info: %s", response);
     }
 
+    // Set transparent mode for TCP/IP
+    ret = sim7600e_gsm_send_at_command("AT+CCHMODE=1\r\n", response,
+                                       sizeof(response), 1000);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to set transparent mode");
+    }
+
     // Configure PDP context
     snprintf(command, sizeof(command), "AT+CGDCONT=1,\"IP\",\"%s\"\r\n", APN);
     ret =
@@ -785,8 +792,7 @@ static void aws_iot_task(void *pvParameters) {
             // Subscribe to topics after successful connection
             if (subscribe_to_aws_topics() != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to subscribe to topics, retrying");
-                xEventGroupClearBits(aws_iot_event_group,
-                                     AWS_IOT_CONNECTED_BIT);
+                xEventGroupClearBits(aws_iot_event_group, AWS_IOT_CONNECTED_BIT);
                 vTaskDelay(pdMS_TO_TICKS(10000));
                 continue;
             }
@@ -885,7 +891,8 @@ esp_err_t aws_iot_sim7600e_init(void) {
 
     // Create event group
     aws_iot_event_group = xEventGroupCreate();
-    if (!aws_iot_event_group) {
+    if (!aws_iot_event_group) 
+    {
         ESP_LOGE(TAG, "Failed to create event group");
         return ESP_FAIL;
     }
@@ -896,23 +903,29 @@ esp_err_t aws_iot_sim7600e_init(void) {
 
     // Initialize certificate manager
     ret = certificate_manager_sim7600e_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize certificate manager");
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Failed to initialize certificate manager: %s", esp_err_to_name(ret));
         return ret;
     }
+    
+    // TEMPORARY: Clear certificate flag to force fresh upload
+    // ESP_LOGW(TAG, "Clearing certificate configuration to force fresh upload...");
+    // certificate_manager_sim7600e_clear_certificates();
 
     // Initialize SIM7600E
     sim7600e_config_t config = sim7600e_get_default_config();
-    ret = sim7600e_init(&config);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize SIM7600E: %s",
-                 esp_err_to_name(ret));
+    ret = sim7600e_init(&config);       
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Failed to initialize SIM7600E: %s", esp_err_to_name(ret));
         return ret;
     }
 
     // Power on the module
     ret = sim7600e_power_on();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         ESP_LOGE(TAG, "Failed to power on SIM7600E: %s", esp_err_to_name(ret));
         return ret;
     }
@@ -922,45 +935,48 @@ esp_err_t aws_iot_sim7600e_init(void) {
 
     // Check modem and SIM
     ret = sim7600e_gsm_check_modem();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         ESP_LOGE(TAG, "Modem check failed: %s", esp_err_to_name(ret));
-        return ret;
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        // return ret;
+        esp_restart(); // TEMPORARY: Restart on modem check failure
     }
 
     ret = sim7600e_gsm_check_sim();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         ESP_LOGE(TAG, "SIM check failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
     // Initialize network and GPRS
     ret = init_network_and_gprs();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Network initialization failed: %s",
-                 esp_err_to_name(ret));
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Network initialization failed: %s", esp_err_to_name(ret));
         return ret;
     }
 
     // Initialize device shadow
     ret = device_shadow_sim7600e_init(device_thing_name);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize device shadow: %s",
-                 esp_err_to_name(ret));
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Failed to initialize device shadow: %s", esp_err_to_name(ret));
         return ret;
     }
 
     // Create AWS IoT and telemetry tasks
-    BaseType_t task_ret;
-
-    task_ret = xTaskCreate(aws_iot_task, "aws_iot_task", 8192, NULL, 5, NULL);
-    if (task_ret != pdPASS) {
+    BaseType_t task_ret = xTaskCreate(aws_iot_task, "aws_iot_task", 8192, NULL, 5, NULL);
+    if (task_ret != pdPASS) 
+    {
         ESP_LOGE(TAG, "Failed to create AWS IoT task");
         return ESP_FAIL;
     }
 
-    task_ret =
-        xTaskCreate(telemetry_task, "telemetry_task", 4096, NULL, 4, NULL);
-    if (task_ret != pdPASS) {
+    task_ret = xTaskCreate(telemetry_task, "telemetry_task", 4096, NULL, 4, NULL);
+    if (task_ret != pdPASS) 
+    {
         ESP_LOGE(TAG, "Failed to create telemetry task");
         return ESP_FAIL;
     }
@@ -978,8 +994,8 @@ void app_main(void) {
 
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
-        ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) 
+    {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
@@ -988,16 +1004,17 @@ void app_main(void) {
     // Initialize event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Initialize GPIO
-    ret = init_gpio();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize GPIO, continuing anyway");
-    }
+    // // Initialize GPIO
+    // ret = init_gpio();
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to initialize GPIO, continuing anyway");
+    // }
 
     // Initialize the AWS IoT client with SIM7600E
     ESP_LOGI(TAG, "Initializing AWS IoT SIM7600E client...");
     ret = aws_iot_sim7600e_init();
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         ESP_LOGE(TAG, "Failed to initialize AWS IoT SIM7600E client");
         return;
     }
@@ -1012,9 +1029,9 @@ void app_main(void) {
 
         // Log network status periodically
         sim7600e_network_info_t info;
-        if (sim7600e_gsm_get_network_info(&info) == ESP_OK) {
-            ESP_LOGI(TAG, "Network: %s, Signal: %d dBm", info.operator_name,
-                     info.signal_strength);
+        if (sim7600e_gsm_get_network_info(&info) == ESP_OK) 
+        {
+            ESP_LOGI(TAG, "Network: %s, Signal: %d dBm", info.operator_name, info.signal_strength);
         }
     }
 }

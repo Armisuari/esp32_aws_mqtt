@@ -2,6 +2,7 @@
 build/
 sdkconfig.old
 *.tmp
+.cache
 
 # Configuration files with sensitive data
 sdkconfig.defaults

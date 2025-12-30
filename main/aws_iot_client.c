@@ -63,13 +63,14 @@ const int AWS_IOT_CONNECTED_BIT = BIT0;
 /**
  * @brief MQTT event handler
  */
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
-                               int32_t event_id, void *event_data) {
+static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) 
+{
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
 
-    switch ((esp_mqtt_event_id_t)event_id) {
+    switch ((esp_mqtt_event_id_t)event_id) 
+    {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         xEventGroupSetBits(aws_iot_event_group, AWS_IOT_CONNECTED_BIT);
@@ -159,7 +160,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 /**
  * @brief Initialize and start MQTT client
  */
-static void mqtt_client_init(void) {
+static void mqtt_client_init(void)
+{
     // Get certificates
     const char *root_ca = certificate_manager_get_root_ca();
     const char *client_cert = certificate_manager_get_client_cert();
@@ -219,7 +221,8 @@ static void mqtt_client_init(void) {
 /**
  * @brief Telemetry publishing task
  */
-static void telemetry_task(void *pvParameters) {
+static void telemetry_task(void *pvParameters) 
+{
     char telemetry_topic[128];
     char telemetry_data[256];
     static int message_count = 0;
@@ -257,7 +260,8 @@ static void telemetry_task(void *pvParameters) {
 /**
  * @brief Application main entry point
  */
-void app_main(void) {
+void app_main(void) 
+{
     ESP_LOGI(TAG, "ESP32-S3 AWS IoT Client Starting...");
 
     // Initialize NVS

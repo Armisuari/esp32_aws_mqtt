@@ -22,6 +22,7 @@ esp_err_t device_shadow_init(const char *thing_name)
         return ESP_ERR_INVALID_ARG;
     }
     
+    // Copy the thing name to the static variable
     strncpy(device_thing_name, thing_name, sizeof(device_thing_name) - 1);
     device_thing_name[sizeof(device_thing_name) - 1] = '\0';
     
