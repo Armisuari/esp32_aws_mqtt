@@ -1,6 +1,9 @@
 # AWS IoT SIM7600E Implementation
 
-This directory contains an alternative implementation of AWS IoT connectivity using the SIM7600E cellular module instead of WiFi. This implementation provides reliable cloud connectivity in areas with limited or no WiFi coverage.
+This implementation provides AWS IoT connectivity using the **SIM7600E cellular module** instead of WiFi. This is ideal for remote deployments, mobile applications, or areas with limited or no WiFi coverage.
+
+> [!NOTE]
+> For WiFi-based connectivity, see the main [README.md](README.md). This document focuses on the cellular (SIM7600E) implementation.
 
 ## Overview
 
@@ -98,7 +101,27 @@ GND       <->  GND
 VCC       <->  5V
 ```
 
-### 2. Certificate Setup
+### 2. Build for SIM7600E Mode
+
+#### Windows
+```powershell
+# Build for SIM7600E cellular mode
+.\\build.bat --mode sim7600e
+
+# Flash and monitor
+idf.py flash monitor
+```
+
+#### Linux/macOS
+```bash
+# Build for SIM7600E cellular mode
+./build.sh --mode sim7600e
+
+# Flash and monitor
+idf.py flash monitor
+```
+
+### 3. Certificate Setup
 Before using the implementation, you need to provision AWS IoT certificates:
 
 ```c

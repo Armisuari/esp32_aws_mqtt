@@ -1,6 +1,5 @@
 # Build output
 build/
-sdkconfig.old
 *.tmp
 .cache
 

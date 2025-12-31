@@ -1,12 +1,12 @@
 # ESP32-S3 AWS IoT MQTT TLS Client
 
-A production-ready ESP-IDF project for connecting ESP32-S3 to AWS IoT Core using secure MQTT over TLS. Features device authentication, shadow synchronization, telemetry publishing, and command handling.
+A production-ready ESP-IDF project for connecting ESP32-S3 to AWS IoT Core using secure MQTT over TLS. Supports both **WiFi** and **SIM7600E cellular** connectivity modes for flexible deployment scenarios.
 
 ## ✨ Features
 
 - 🔒 **Secure MQTT over TLS** (port 8883) with X.509 certificate authentication
 - ☁️ **AWS IoT Core Integration** with Device Shadows, telemetry, and commands  
-- 📡 **WiFi Management** with robust connection handling and auto-reconnect
+- 📡 **Dual Connectivity Modes**: WiFi or SIM7600E cellular (4G LTE)
 - 🔧 **Cross-Platform Build** automation for Windows and Linux
 - 🎯 **VS Code Integration** with full IntelliSense and debugging support
 - 🛡️ **Security Best Practices** with certificate management and gitignore protection
@@ -23,6 +23,25 @@ A production-ready ESP-IDF project for connecting ESP32-S3 to AWS IoT Core using
 - **AWS CLI v2** ([Download](https://aws.amazon.com/cli/))
 - **AWS Account** with IoT Core access
 - **VS Code** with ESP-IDF extension (recommended)
+
+## 🏗️ Architecture
+
+This project supports two deployment modes:
+
+### WiFi Mode (Default)
+Ideal for development, testing, and deployments with reliable WiFi coverage.
+- Direct WiFi connection to AWS IoT Core
+- Lower power consumption
+- Simpler hardware setup
+
+### SIM7600E Cellular Mode
+Designed for remote deployments, mobile applications, or areas without WiFi.
+- 4G LTE cellular connectivity via SIM7600E module
+- Works anywhere with cellular coverage
+- Requires SIM7600E hardware module and SIM card
+- See [SIM7600E_README.md](SIM7600E_README.md) for detailed cellular setup
+
+Both modes provide the same AWS IoT features: secure MQTT, Device Shadows, telemetry, and command handling.
 
 ## 🚀 Quick Start Guide
 
@@ -116,10 +135,20 @@ CONFIG_AWS_IOT_DEVICE_THING_NAME="esp32-s3-device"
 
 ### Step 6: Build and Flash
 
+The project supports two connectivity modes: **WiFi** (default) and **SIM7600E** (cellular). Use the build scripts with the `--mode` parameter to select the desired mode.
+
 #### Windows (PowerShell)
 ```powershell
-# Build the project
+# Build for WiFi mode (default)
 .\\build.bat
+# or explicitly:
+.\\build.bat --mode wifi
+
+# Build for SIM7600E cellular mode
+.\\build.bat --mode sim7600e
+
+# Clean build
+.\\build.bat --mode wifi --clean
 
 # Connect ESP32-S3 via USB, then flash
 idf.py flash monitor
@@ -127,8 +156,16 @@ idf.py flash monitor
 
 #### Linux/macOS
 ```bash
-# Build the project
+# Build for WiFi mode (default)
 ./build.sh
+# or explicitly:
+./build.sh --mode wifi
+
+# Build for SIM7600E cellular mode
+./build.sh --mode sim7600e
+
+# Clean build
+./build.sh --mode wifi --clean
 
 # Flash and monitor
 idf.py flash monitor

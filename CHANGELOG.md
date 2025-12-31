@@ -2,6 +2,31 @@
 
 All notable changes to the ESP32-S3 AWS IoT MQTT TLS project will be documented in this file.
 
+## [1.1.0] - 2025-12-31
+
+### Added
+- Unified build system with mode selection (`--mode wifi` or `--mode sim7600e`)
+- Clean build option (`--clean` flag) for build scripts
+- Dual-mode architecture documentation in README
+- Cross-references between WiFi and SIM7600E documentation
+
+### Changed
+- Consolidated `build.bat`, `build_wifi.bat`, and `build_sim7600e.bat` into single `build.bat` with `--mode` parameter
+- Similarly updated `build.sh` for Linux/macOS with mode selection
+- Enhanced build script argument parsing and error handling
+- Updated all documentation to reflect new build system
+- Improved `.gitignore` by removing redundant entries
+
+### Removed
+- `build_wifi.bat` - functionality integrated into `build.bat`
+- `build_sim7600e.bat` - functionality integrated into `build.bat`
+- `sdkconfig.old` - temporary build file removed from repository
+- Redundant `sdkconfig.old` entry from `.gitignore`
+
+### Fixed
+- Build script backward compatibility maintained (default to WiFi mode)
+- Documentation consistency between WiFi and SIM7600E modes
+
 ## [1.0.0] - 2025-12-11
 
 ### Added

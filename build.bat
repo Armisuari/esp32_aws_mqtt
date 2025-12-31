@@ -1,10 +1,61 @@
 @echo off
 REM ESP32-S3 AWS IoT MQTT Build Script for Windows
 REM Automated build script with ESP-IDF environment setup
+REM Supports both WiFi and SIM7600E modes
 
 echo ================================================
 echo ESP32-S3 AWS IoT MQTT TLS Build Script
 echo ================================================
+
+REM Parse command line arguments
+set BUILD_MODE=wifi
+set CLEAN_BUILD=0
+
+:parse_args
+if [%~1]==[] goto parsing_complete
+if /i "%~1"=="--mode" goto mode_arg
+if /i "%~1"=="-m" goto mode_arg
+if /i "%~1"=="--clean" goto clean_arg
+if /i "%~1"=="-c" goto clean_arg
+goto unknown_arg
+
+:mode_arg
+set BUILD_MODE=%~2
+shift
+shift
+goto parse_args
+
+:clean_arg
+set CLEAN_BUILD=1
+shift
+goto parse_args
+ 
+:unknown_arg
+echo ERROR: Unknown option '%~1'
+echo.
+echo Usage: build.bat [--mode MODE] [--clean]
+echo   --mode, -m    Build mode: wifi or sim7600e (default: wifi)
+echo   --clean, -c   Clean build before building
+pause
+exit /b 1
+
+:parsing_complete
+REM Validate build mode
+if /i "%BUILD_MODE%"=="wifi" goto mode_valid
+if /i "%BUILD_MODE%"=="sim7600e" goto mode_valid
+
+echo ERROR: Invalid build mode '%BUILD_MODE%'
+echo Valid modes: wifi, sim7600e
+echo.
+echo Usage: build.bat [--mode MODE] [--clean]
+echo   --mode, -m    Build mode: wifi or sim7600e (default: wifi)
+echo   --clean, -c   Clean build before building
+pause
+exit /b 1
+
+:mode_valid
+echo Build Mode: %BUILD_MODE%
+echo.
 
 REM Check if ESP-IDF is already in environment
 if defined IDF_PATH (
@@ -63,14 +114,40 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Clean previous build
-echo Cleaning previous build...
-idf.py clean
+REM Configure build mode
+echo Configuring for %BUILD_MODE% mode...
+if /i "%BUILD_MODE%"=="wifi" (
+    echo CONFIG_AWS_IOT_USE_WIFI=y > sdkconfig.mode
+    echo CONFIG_AWS_IOT_USE_SIM7600E=n >> sdkconfig.mode
+) else (
+    echo CONFIG_AWS_IOT_USE_SIM7600E=y > sdkconfig.mode
+    echo CONFIG_AWS_IOT_USE_WIFI=n >> sdkconfig.mode
+)
+
+REM Apply configuration
+idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.mode" reconfigure
+if errorlevel 1 (
+    echo ERROR: Failed to apply configuration
+    del sdkconfig.mode
+    pause
+    exit /b 1
+)
+
+REM Clean previous build if requested
+if "%CLEAN_BUILD%"=="1" (
+    echo Cleaning previous build...
+    idf.py clean
+)
 
 REM Build the project
 echo Building project...
 idf.py build
-if errorlevel 1 (
+set BUILD_RESULT=%errorlevel%
+
+REM Cleanup temporary config file
+del sdkconfig.mode
+
+if %BUILD_RESULT% neq 0 (
     echo ERROR: Build failed
     pause
     exit /b 1
@@ -79,6 +156,8 @@ if errorlevel 1 (
 echo ================================================
 echo Build completed successfully!
 echo ================================================
+echo.
+echo Mode: %BUILD_MODE%
 echo.
 echo To flash the firmware:
 echo   idf.py flash
