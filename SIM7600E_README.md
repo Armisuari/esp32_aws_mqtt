@@ -17,15 +17,15 @@ The SIM7600E implementation provides all the same AWS IoT features as the WiFi v
 ## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   ESP32-S3      │    │    SIM7600E     │    │   AWS IoT Core  │
-│                 │    │   Cellular      │    │                 │
-│  Application    │◄──►│    Module       │◄──►│   MQTT Broker   │
-│                 │    │                 │    │                 │
-│  - Shadow Mgmt  │    │  - AT Commands  │    │  - Device Shadow│
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│   ESP32-S3      │    │    SIM7600E     │    │   AWS IoT Core   │
+│                 │    │   Cellular      │    │                  │
+│  Application    │◄──►│    Module       │◄──►│   MQTT Broker    │
+│                 │    │                 │    │                  │
+│  - Shadow Mgmt  │    │  - AT Commands  │    │  - Device Shadow │
 │  - Telemetry    │    │  - SSL/TLS      │    │  - Message Broker│
 │  - Commands     │    │  - 4G/LTE       │    │  - Authentication│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+└─────────────────┘    └─────────────────┘    └──────────────────┘
 ```
 
 ## Key Components

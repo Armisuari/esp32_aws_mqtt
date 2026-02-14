@@ -1,21 +1,30 @@
+/**
+ * @file aws_iot_config.h
+ * @brief AWS IoT configuration header
+ *
+ * All values come from Kconfig (menuconfig). Do NOT hardcode credentials here.
+ * Defaults live in sdkconfig.defaults.
+ */
+
 #ifndef AWS_IOT_CONFIG_H
 #define AWS_IOT_CONFIG_H
 
-// AWS IoT Configuration
-// These values are configured in sdkconfig.defaults
-#define CONFIG_AWS_IOT_MQTT_HOST                                               \
-    "a26g2r8rrxpe0j-ats.iot.ap-southeast-1.amazonaws.com"
-#define CONFIG_AWS_IOT_MQTT_PORT 8883
-#define CONFIG_AWS_IOT_DEVICE_THING_NAME "esp32-s3-device"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// WiFi Configuration
-#define CONFIG_EXAMPLE_WIFI_SSID "Noovoleum_Office"
-#define CONFIG_EXAMPLE_WIFI_PASSWORD "greenenergychampion"
-#define CONFIG_EXAMPLE_WIFI_MAXIMUM_RETRY 5
+/* ---- AWS IoT Core ---- */
+#define AWS_IOT_MQTT_HOST           CONFIG_AWS_IOT_MQTT_HOST
+#define AWS_IOT_MQTT_PORT           CONFIG_AWS_IOT_MQTT_PORT
+#define AWS_IOT_DEVICE_THING_NAME   CONFIG_AWS_IOT_DEVICE_THING_NAME
 
-// Certificate filenames
-#define CONFIG_AWS_IOT_ROOT_CA_FILENAME "aws_root_ca.pem"
-#define CONFIG_AWS_IOT_CERTIFICATE_FILENAME "device_cert.pem"
-#define CONFIG_AWS_IOT_PRIVATE_KEY_FILENAME "device_private_key.pem"
+/* ---- Certificate filenames ---- */
+#define AWS_IOT_ROOT_CA_FILENAME    CONFIG_AWS_IOT_ROOT_CA_FILENAME
+#define AWS_IOT_CERTIFICATE_FILENAME CONFIG_AWS_IOT_CERTIFICATE_FILENAME
+#define AWS_IOT_PRIVATE_KEY_FILENAME CONFIG_AWS_IOT_PRIVATE_KEY_FILENAME
 
-#endif // AWS_IOT_CONFIG_H
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* AWS_IOT_CONFIG_H */

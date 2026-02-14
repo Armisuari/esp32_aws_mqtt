@@ -16,5 +16,6 @@
     "*.c": "c"
   },
   "editor.formatOnSave": false,
-  "C_Cpp.clang_format_style": "{ IndentWidth: 4, TabWidth: 4, UseTab: Never }"
+  "C_Cpp.clang_format_style": "{ IndentWidth: 4, TabWidth: 4, UseTab: Never }",
+  "idf.currentSetup": "c:\\Users\\Noovo-Arief\\esp\\v5.3.2\\esp-idf"
 }

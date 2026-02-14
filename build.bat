@@ -125,13 +125,12 @@ if /i "%BUILD_MODE%"=="wifi" (
 )
 
 REM Apply configuration
-idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.mode" reconfigure
-if errorlevel 1 (
-    echo ERROR: Failed to apply configuration
-    del sdkconfig.mode
-    pause
-    exit /b 1
-)
+    idf.py -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.mode" reconfigure
+    if errorlevel 1 (
+        echo ERROR: Failed to apply configuration
+        pause
+        exit /b 1
+    )
 
 REM Clean previous build if requested
 if "%CLEAN_BUILD%"=="1" (
@@ -143,9 +142,6 @@ REM Build the project
 echo Building project...
 idf.py build
 set BUILD_RESULT=%errorlevel%
-
-REM Cleanup temporary config file
-del sdkconfig.mode
 
 if %BUILD_RESULT% neq 0 (
     echo ERROR: Build failed

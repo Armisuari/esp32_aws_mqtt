@@ -115,9 +115,6 @@ fi
 echo "Building project..."
 idf.py build
 
-# Cleanup temporary config file
-rm -f sdkconfig.mode
-
 echo "================================================"
 echo "Build completed successfully!"
 echo "================================================"

@@ -23,33 +23,33 @@
 
 static const char *TAG = "SHADOW_SIM7600E";
 
-// Shadow state structure
+#define NUM_DIGITAL_INPUTS 4
+#define MQTT_QOS           1
+#define MQTT_PUB_TIMEOUT   60
+
+/* Internal shadow state (matches public device_shadow_state_t + extras) */
 typedef struct {
-    char device_id[64];
-    char mac_address[13];
-    int signal_strength;
+    char     device_id[64];
+    char     mac_address[13];
+    int      signal_strength;
     uint32_t heartbeat;
-    bool digital_inputs[4];
-    bool relay_output;
-    int temperature;
-    int humidity;
+    bool     digital_inputs[NUM_DIGITAL_INPUTS];
+    bool     relay_output;
+    int      temperature;
+    int      humidity;
     uint64_t timestamp;
 } shadow_state_t;
 
-// Current shadow state
 static shadow_state_t current_state = {0};
 static shadow_state_t desired_state = {0};
 
-// Synchronization mutex
 static SemaphoreHandle_t shadow_mutex = NULL;
-
-// Shadow callback function
 static device_shadow_callback_t shadow_callback = NULL;
 
-// Topics
-static char shadow_update_topic[128] = {0};
-static char shadow_get_topic[128] = {0};
-static char shadow_delta_topic[128] = {0};
+/* Topic buffers */
+static char shadow_update_topic[128]   = {0};
+static char shadow_get_topic[128]      = {0};
+static char shadow_delta_topic[128]    = {0};
 static char shadow_accepted_topic[128] = {0};
 static char shadow_rejected_topic[128] = {0};
 
@@ -204,9 +204,9 @@ static char *create_shadow_json(const device_shadow_state_t *reported_state,
         cJSON_AddNumberToObject(reported, "humidity", reported_state->humidity);
         cJSON_AddNumberToObject(reported, "timestamp", current_state.timestamp);
 
-        // Add digital inputs array
+        /* Digital inputs */
         cJSON *inputs = cJSON_CreateArray();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < NUM_DIGITAL_INPUTS; i++) {
             cJSON_AddItemToArray(
                 inputs, cJSON_CreateBool(reported_state->digital_inputs[i]));
         }
@@ -278,13 +278,49 @@ static esp_err_t parse_shadow_delta(const char *json_payload) {
 }
 
 /**
- * @brief Publish shadow update to AWS IoT
- *
- * @return esp_err_t
+ * Publish an MQTT message via the SIM7600E 3-step AT command sequence.
  */
+static esp_err_t mqtt_publish_at(const char *topic, const char *payload) {
+    char response[256];
+    char command[128];
+    esp_err_t ret;
+
+    /* 1. Topic */
+    snprintf(command, sizeof(command),
+             "AT+CMQTTTOPIC=0,%d\r\n", (int)strlen(topic));
+    ret = sim7600e_gsm_send_at_command(command, response,
+                                       sizeof(response), 3000);
+    if (ret == ESP_OK) {
+        ret = sim7600e_gsm_send_at_command(topic, response,
+                                           sizeof(response), 3000);
+    }
+
+    /* 2. Payload */
+    if (ret == ESP_OK) {
+        snprintf(command, sizeof(command),
+                 "AT+CMQTTPAYLOAD=0,%d\r\n", (int)strlen(payload));
+        ret = sim7600e_gsm_send_at_command(command, response,
+                                           sizeof(response), 3000);
+        if (ret == ESP_OK) {
+            ret = sim7600e_gsm_send_at_command(payload, response,
+                                               sizeof(response), 3000);
+        }
+    }
+
+    /* 3. Publish */
+    if (ret == ESP_OK) {
+        snprintf(command, sizeof(command),
+                 "AT+CMQTTPUB=0,%d,%d\r\n", MQTT_QOS, MQTT_PUB_TIMEOUT);
+        ret = sim7600e_gsm_send_at_command(command, response,
+                                           sizeof(response), 10000);
+    }
+
+    return ret;
+}
+
 esp_err_t device_shadow_sim7600e_publish_update(void) {
     if (!shadow_mutex) {
-        ESP_LOGE(TAG, "Shadow not initialized");
+        ESP_LOGE(TAG, "Shadow not initialised");
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -293,13 +329,13 @@ esp_err_t device_shadow_sim7600e_publish_update(void) {
         return ESP_ERR_TIMEOUT;
     }
 
-    // Create current state copy for JSON generation
     device_shadow_state_t current_copy = {
         .signal_strength = current_state.signal_strength,
-        .heartbeat = current_state.heartbeat,
-        .relay_output = current_state.relay_output,
-        .temperature = current_state.temperature,
-        .humidity = current_state.humidity};
+        .heartbeat       = current_state.heartbeat,
+        .relay_output    = current_state.relay_output,
+        .temperature     = current_state.temperature,
+        .humidity        = current_state.humidity,
+    };
     strncpy(current_copy.mac_address, current_state.mac_address,
             sizeof(current_copy.mac_address) - 1);
     memcpy(current_copy.digital_inputs, current_state.digital_inputs,
@@ -307,168 +343,81 @@ esp_err_t device_shadow_sim7600e_publish_update(void) {
 
     xSemaphoreGive(shadow_mutex);
 
-    // Create shadow JSON
-    char *shadow_json = create_shadow_json(&current_copy, false);
-    if (!shadow_json) {
+    char *json = create_shadow_json(&current_copy, false);
+    if (!json) {
         ESP_LOGE(TAG, "Failed to create shadow JSON");
         return ESP_ERR_NO_MEM;
     }
 
-    ESP_LOGI(TAG, "Publishing shadow update: %s", shadow_json);
+    ESP_LOGI(TAG, "Publishing shadow update: %s", json);
 
-    // Publish using SIM7600E AT commands
-    char response[256];
-    char command[128];
-    esp_err_t ret = ESP_OK;
-
-    // Set topic
-    snprintf(command, sizeof(command), "AT+CMQTTTOPIC=0,%d\r\n",
-             strlen(shadow_update_topic));
-    ret =
-        sim7600e_gsm_send_at_command(command, response, sizeof(response), 3000);
-    if (ret == ESP_OK) {
-        ret = sim7600e_gsm_send_at_command(shadow_update_topic, response,
-                                           sizeof(response), 3000);
-    }
-
-    // Set payload
-    if (ret == ESP_OK) {
-        snprintf(command, sizeof(command), "AT+CMQTTPAYLOAD=0,%d\r\n",
-                 strlen(shadow_json));
-        ret = sim7600e_gsm_send_at_command(command, response, sizeof(response),
-                                           3000);
-        if (ret == ESP_OK) {
-            ret = sim7600e_gsm_send_at_command(shadow_json, response,
-                                               sizeof(response), 3000);
-        }
-    }
-
-    // Publish
-    if (ret == ESP_OK) {
-        ret = sim7600e_gsm_send_at_command("AT+CMQTTPUB=0,1,60\r\n", response,
-                                           sizeof(response), 10000);
-    }
-
-    free(shadow_json);
+    esp_err_t ret = mqtt_publish_at(shadow_update_topic, json);
+    free(json);
 
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Shadow update published successfully");
+        ESP_LOGI(TAG, "Shadow update published");
     } else {
         ESP_LOGE(TAG, "Failed to publish shadow update");
     }
-
     return ret;
 }
 
-/**
- * @brief Request current shadow from AWS IoT
- *
- * @return esp_err_t
- */
 esp_err_t device_shadow_sim7600e_get_shadow(void) {
     ESP_LOGI(TAG, "Requesting current shadow from AWS IoT");
 
-    // Create empty shadow get request
-    const char *get_request = "{}";
-
-    char response[256];
-    char command[128];
-    esp_err_t ret = ESP_OK;
-
-    // Set topic
-    snprintf(command, sizeof(command), "AT+CMQTTTOPIC=0,%d\r\n",
-             strlen(shadow_get_topic));
-    ret =
-        sim7600e_gsm_send_at_command(command, response, sizeof(response), 3000);
-    if (ret == ESP_OK) {
-        ret = sim7600e_gsm_send_at_command(shadow_get_topic, response,
-                                           sizeof(response), 3000);
-    }
-
-    // Set payload
-    if (ret == ESP_OK) {
-        snprintf(command, sizeof(command), "AT+CMQTTPAYLOAD=0,%d\r\n",
-                 strlen(get_request));
-        ret = sim7600e_gsm_send_at_command(command, response, sizeof(response),
-                                           3000);
-        if (ret == ESP_OK) {
-            ret = sim7600e_gsm_send_at_command(get_request, response,
-                                               sizeof(response), 3000);
-        }
-    }
-
-    // Publish
-    if (ret == ESP_OK) {
-        ret = sim7600e_gsm_send_at_command("AT+CMQTTPUB=0,1,60\r\n", response,
-                                           sizeof(response), 10000);
-    }
+    esp_err_t ret = mqtt_publish_at(shadow_get_topic, "{}");
 
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Shadow get request sent successfully");
+        ESP_LOGI(TAG, "Shadow get request sent");
     } else {
         ESP_LOGE(TAG, "Failed to send shadow get request");
     }
-
     return ret;
 }
 
 /**
- * @brief Subscribe to shadow delta updates
- *
- * @return esp_err_t
+ * Subscribe to shadow delta, accepted, and rejected topics.
  */
+static esp_err_t subscribe_to_topic(const char *topic) {
+    char response[256];
+    char command[128];
+
+    snprintf(command, sizeof(command),
+             "AT+CMQTTSUB=0,%d,%d\r\n", (int)strlen(topic), MQTT_QOS);
+    esp_err_t ret = sim7600e_gsm_send_at_command(
+        command, response, sizeof(response), 3000);
+    if (ret != ESP_OK) { return ret; }
+
+    return sim7600e_gsm_send_at_command(
+        topic, response, sizeof(response), 3000);
+}
+
 esp_err_t device_shadow_sim7600e_subscribe_delta(void) {
     ESP_LOGI(TAG, "Subscribing to shadow delta updates");
 
-    char response[256];
-    char command[128];
-    esp_err_t ret;
-
-    // Subscribe to shadow delta topic
-    snprintf(command, sizeof(command), "AT+CMQTTSUB=0,%d,1\r\n",
-             strlen(shadow_delta_topic));
-    ret =
-        sim7600e_gsm_send_at_command(command, response, sizeof(response), 3000);
+    esp_err_t ret = subscribe_to_topic(shadow_delta_topic);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initiate delta subscription");
+        ESP_LOGE(TAG, "Failed to subscribe to delta topic");
         return ret;
     }
 
-    ret = sim7600e_gsm_send_at_command(shadow_delta_topic, response,
-                                       sizeof(response), 3000);
+    ret = subscribe_to_topic(shadow_accepted_topic);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to send delta topic");
-        return ret;
+        ESP_LOGW(TAG, "Failed to subscribe to accepted topic");
     }
 
-    // Subscribe to shadow accepted topic
-    snprintf(command, sizeof(command), "AT+CMQTTSUB=0,%d,1\r\n",
-             strlen(shadow_accepted_topic));
-    ret =
-        sim7600e_gsm_send_at_command(command, response, sizeof(response), 3000);
     if (ret == ESP_OK) {
-        ret = sim7600e_gsm_send_at_command(shadow_accepted_topic, response,
-                                           sizeof(response), 3000);
-    }
-
-    // Subscribe to shadow rejected topic
-    if (ret == ESP_OK) {
-        snprintf(command, sizeof(command), "AT+CMQTTSUB=0,%d,1\r\n",
-                 strlen(shadow_rejected_topic));
-        ret = sim7600e_gsm_send_at_command(command, response, sizeof(response),
-                                           3000);
-        if (ret == ESP_OK) {
-            ret = sim7600e_gsm_send_at_command(shadow_rejected_topic, response,
-                                               sizeof(response), 3000);
+        ret = subscribe_to_topic(shadow_rejected_topic);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Failed to subscribe to rejected topic");
         }
     }
 
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Successfully subscribed to shadow topics");
+        ESP_LOGI(TAG, "Subscribed to all shadow topics");
     } else {
         ESP_LOGE(TAG, "Failed to subscribe to shadow topics");
     }
-
     return ret;
 }
 
